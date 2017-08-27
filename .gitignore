@@ -100,7 +100,8 @@ ENV/
 
 # Project Specific Git Ignore components
 ProjectSocrates/*
-scripts/keys.config
+scripts/bot_keys.config
+scripts/web_keys.config
 scripts/model.config
 scripts/ledger.txt
 scripts/multipliers.db

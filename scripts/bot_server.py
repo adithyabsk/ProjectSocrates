@@ -25,11 +25,11 @@ import paypalrestsdk
 # Load Secretes and Model Parameters
 # Secrets
 secrets = None
-if os.path.isfile("keys.config"):
-  with open("keys.config", "r") as keys_file:
+if os.path.isfile("bot_keys.config"):
+  with open("bot_keys.config", "r") as keys_file:
     secrets = json.load(keys_file)
 else:
-  sys.exit('keys.config was not found, please update sample file with keys')
+  sys.exit('bot_keys.config was not found, please update sample file with keys')
 # Model
 model_parameters = None
 if os.path.isfile("model.config"):
