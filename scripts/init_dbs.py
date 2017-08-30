@@ -1,25 +1,45 @@
 #!/usr/bin/env python
 
-import sqlite3
+import pymysql.cursors
 
-mult_db = sqlite3.connect('multipliers.db')
-mult_cursor = mult_db.cursor()
 
-mult_cursor.execute("""CREATE TABLE Multipliers (
-					   id varchar(36) primary key,
-					   video_id varchar(11),
-					   value real,
-					   used integer""")
-mult_db.commit()
-mult_db.close()
+# DB
+db_keys = None
+if os.path.isfile("db_keys.config"):
+  with open("db_key.config", "r") as model_file:
+    model_parameters = json.load(model_file)
+else:
+  sys.exit("db_key.config was not found, please update model config file")
 
-votes_db = sqlite3.connect('votes.db')
-votes_cursor = votes_db.cursor()
+# Config DB
+DB_HOST = secrets["DB_HOST"]
+DB_USER = secrets["DB_USER"]
+DB_PASS = secrets["DB_PASS"]
+DB_ID = secrets["DB_ID"]
 
-votes_cursor.execute("""CREATE TABLE Votes (
-					   video_id varchar(11) primary key,
-					   votes real,
-					   multiplier real,
-					   played integer""")
-votes_db.commit()
-votes_db.close()
+# Connect to the database
+votes_conn = pymysql.connect(host=DB_HOST,
+                             user=DB_USER,
+                             password=DB_PASS,
+                             db=DB_ID,
+                             charset='utf8mb4',
+                             cursorclass=pymysql.cursors.DictCursor)
+
+def set_votes_schema():
+	try:
+		with votes_conn.cursor() as cursor:
+			sql = "CREATE TABLE `Votes` (`video_id` VARCHAR(11) NOT NULL, `votes` INT, `multiplier` DOUBLE, `play_date` DATE, `create_date` DATE, PRIMARY KEY (`video_id`))"
+			cursor.execute(sql)
+		votes_conn.commit()
+
+def set_ledger_schema():
+  try:
+    with votes_conn.cursor() as cursor:
+      sql = "CREATE TABLE `Ledger` (`id` INT NOT NULL AUTO_INCREMENT, `username` VARCHAR(25), `video_id` VARCHAR(11), `timestamp` DATETIME, PRIMARY KEY (`id`))"
+      cursor.execute(sql)
+    votes_conn.commit()
+
+set_votes_schema()
+set_ledger_schema()
+
+votes_conn.close()

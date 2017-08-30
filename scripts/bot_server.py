@@ -9,7 +9,9 @@ import re
 import time
 import threading
 from Queue import Queue
-import sqlite3
+
+# MariaDB API
+import pymysql.cursors
 
 # Youtube API
 from apiclient.discovery import build
@@ -29,14 +31,21 @@ if os.path.isfile("bot_keys.config"):
   with open("bot_keys.config", "r") as keys_file:
     secrets = json.load(keys_file)
 else:
-  sys.exit('bot_keys.config was not found, please update sample file with keys')
+  sys.exit("bot_keys.config was not found, please update sample file with keys")
 # Model
 model_parameters = None
 if os.path.isfile("model.config"):
   with open("model.config", "r") as model_file:
     model_parameters = json.load(model_file)
 else:
-  sys.exit('model.config was not found, please update model config file')
+  sys.exit("model.config was not found, please update model config file")
+# DB
+db_keys = None
+if os.path.isfile("db_keys.config"):
+  with open("db_key.config", "r") as model_file:
+    model_parameters = json.load(model_file)
+else:
+  sys.exit("db_key.config was not found, please update model config file")
 
 # Set Secrets and Model Parameters
 # YT
@@ -55,16 +64,11 @@ MAX_COOLDOWN = model_parameters["MAX_COOLDOWN"] # in seconds
 MAX_FRAC_VOTES = model_parameters["MAX_FRAC_VOTES"] # proportion
 VOTE_PROB = model_parameters["VOTE_PROB"] # probablity of active user vote
 DUTY_CYCLE = model_parameters["DUTY_CYCLE"] # in seconds
-
-# try:
-#   print verify_video('y6120QOlsfU')
-# except HttpError, e:
-#   print "An HTTP error %d occurred:\n%s" % (e.resp.status, e.content)
-
-paypalrestsdk.configure({
-  'mode': 'sandbox', #sandbox or live
-  'client_id': 'YOUR APPLICATION CLIENT ID',
-  'client_secret': 'YOUR APPLICATION CLIENT SECRET' })
+# DB
+DB_HOST = secrets["DB_HOST"]
+DB_USER = secrets["DB_USER"]
+DB_PASS = secrets["DB_PASS"]
+DB_ID = secrets["DB_ID"]
 
 class VoteTranscriber(threading.Thread):
   CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
@@ -117,50 +121,21 @@ class VoteProcessor(threading.Thread):
   def __init__(self, votes):
     threading.Thread.__init__(self)
     self.votes = votes
+    self.votes_conn = pymysql.connect(host=DB_HOST,
+                                      user=DB_USER,
+                                      password=DB_PASS,
+                                      db=DB_ID,
+                                      charset='utf8mb4',
+                                      cursorclass=pymysql.cursors.DictCursor)
 
-    # self.votes_db = sqlite3.connect('votes.db')
-    # self.votes_cursor = self.votes_db.cursor()
-    # 
-    # self.mult_db = sqlite3.connect('multipliers.db')
-    # self.mult_cursor = self.mult_db.cursor()
-
-  def put_vote(self, video_id, multiplier=None):
-    votes_db = sqlite3.connect('votes.db')
-    votes_cursor = votes_db.cursor()
-
-    should_update_multiplier = False
-    if multiplier: should_update_multiplier = True
-    else: multiplier = 1.0
-
-    # First check if key exists
-    votes_cursor.execute("SELECT * FROM Votes WHERE video_id = ?", (video_id,))
-    data = votes_cursor.fetchall()
-    if len(data) == 0:
-      print "Beginning to add vote..."
-      # Key does not exist
-      try:
-        print "Key does not exist so creating key...."
-        votes_cursor.execute("""INSERT INTO Votes (video_id, votes, multiplier, played) 
-        VALUES (?, ?, ?, ?)""", (video_id, 1*multiplier, multiplier, 0,))
-        votes_db.commit()
-        print "Value was added to "
-      except Exception as e:
-        print "There was an error 1: " + e.args[0]
-      finally:
-        votes_db.close()
-    else:
-      # Key does exist
-      try:
-        if should_update_multiplier:
-          votes_cursor.execute("""UPDATE Votes SET multiplier = multiplier + ? WHERE video_id = ?""", (multiplier, video_id,))
-          votes_cursor.execute("""UPDATE Votes SET votes = (votes + 1) * multiplier WHERE video_id = ?""", (video_id,))
-        else:
-          votes_cursor.execute("""UPDATE Votes SET votes = votes + (1 * multiplier) WHERE video_id = ?""", (video_id,))
-        votes_db.commit()
-      except Exception as e:
-        print "There was an error 2: {}\n".format(e)
-      finally:
-        votes_db.close()
+  def put_vote(self, video_id):
+    try:
+      with self.votes_conn.cursor() as cursor:
+        sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, %d, %f, %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
+        cursor.execute(sql, (video_id, 1, 1.0, "0000-00-00", time.strftime("%Y-%m-%d")))
+      self.votes_conn.commit()
+    except Exception e:
+      print "There was an error {}".format(e)
 
   def verify_video(self, video_id):
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
@@ -171,8 +146,6 @@ class VoteProcessor(threading.Thread):
       id=video_id
     ).execute()
 
-    # print json.dumps(results, indent=4)
-
     return results["items"][0]["id"] if results["items"] else None
 
   def process_message(self, m):
@@ -180,38 +153,23 @@ class VoteProcessor(threading.Thread):
     if len(m) != 11: return None
     else: return self.verify_video(m)
 
-  def add_vote(self, username, video_id, multiplier):
-    with open('ledger.txt', 'a') as ledger_file:
-      ledger_file.write("{}, {}\n".format(username, video_id))
-    
-    self.put_vote(video_id, multiplier)
-
-  def get_multiplier(self, video_id):
-    mult_db = sqlite3.connect('multipliers.db')
-    mult_cursor = mult_db.cursor()
-
+  def add_vote(self, username, video_id):
     try:
-      mult_cursor.execute('SELECT * FROM Multipliers WHERE used = 0 AND video_id = ?',
-    (video_id,))
-      multipliers = mult_cursor.fetchall()
-      mult_cursor.execute('UPDATE Multipliers SET used = 1 WHERE video_id = ?',
-    (video_id,))
-      mult_db.commit()
-      if len(multipliers) == 0: return None
-      else: return sum([x[2] for x in multipliers])
-    except Exception as e:
-      print "There was an error 3: {}\n".format(e)
-      return None
-    finally:
-      mult_db.close()
+      with self.votes_conn.cursor() as cursor:
+        sql = "INSERT INTO `Ledger` (`username`, `video_id`) VALUES (%s, %s)"
+        cursor.execute(sql, (username, video_id, time.strftime("%Y-%m-%d %H:%M:%S")))
+      self.votes_conn.commit()
+    except Exception e:
+      print "There was an error {}".format(e)
+    
+    self.put_vote(video_id)
 
   def run(self):
     while True:
       username, message = self.votes.get()
       video_id = self.process_message(message)
       if video_id != None:
-        multiplier = self.get_multiplier(video_id)
-        self.add_vote(username, "http://www.youtube.com/watch?v="+video_id, multiplier)
+        self.add_vote(username, "http://www.youtube.com/watch?v="+video_id)
         print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
       else: print "{} popped from queue by {}".format((username, message), self.name)
       self.votes.task_done()
@@ -228,7 +186,7 @@ def main():
   while True:
       time.sleep(10)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
