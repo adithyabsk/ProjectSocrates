@@ -42,10 +42,10 @@ else:
 # DB
 db_keys = None
 if os.path.isfile("db_keys.config"):
-  with open("db_key.config", "r") as model_file:
-    model_parameters = json.load(model_file)
+  with open("db_keys.config", "r") as key_file:
+    db_keys = json.load(key_file)
 else:
-  sys.exit("db_key.config was not found, please update model config file")
+  sys.exit("db_keys.config was not found, please update model config file")
 
 # Set Secrets and Model Parameters
 # YT
@@ -131,11 +131,11 @@ class VoteProcessor(threading.Thread):
   def put_vote(self, video_id):
     try:
       with self.votes_conn.cursor() as cursor:
-        sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, %d, %f, %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
-        cursor.execute(sql, (video_id, 1, 1.0, "0000-00-00", time.strftime("%Y-%m-%d")))
+        sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, 1, 1.0, '0000-00-00', %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
+        cursor.execute(sql, (video_id, time.strftime("%Y-%m-%d")))
       self.votes_conn.commit()
-    except Exception e:
-      print "There was an error {}".format(e)
+    except Exception as e:
+      print "There was an error 1 {}".format(e)
 
   def verify_video(self, video_id):
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
@@ -156,11 +156,11 @@ class VoteProcessor(threading.Thread):
   def add_vote(self, username, video_id):
     try:
       with self.votes_conn.cursor() as cursor:
-        sql = "INSERT INTO `Ledger` (`username`, `video_id`) VALUES (%s, %s)"
+        sql = "INSERT INTO `Ledger` (`username`, `video_id`, `timestamp`) VALUES (%s, %s, %s)"
         cursor.execute(sql, (username, video_id, time.strftime("%Y-%m-%d %H:%M:%S")))
       self.votes_conn.commit()
-    except Exception e:
-      print "There was an error {}".format(e)
+    except Exception as e:
+      print "There was an error 2 {}".format(e)
     
     self.put_vote(video_id)
 
@@ -169,7 +169,7 @@ class VoteProcessor(threading.Thread):
       username, message = self.votes.get()
       video_id = self.process_message(message)
       if video_id != None:
-        self.add_vote(username, "http://www.youtube.com/watch?v="+video_id)
+        self.add_vote(username, video_id)
         print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
       else: print "{} popped from queue by {}".format((username, message), self.name)
       self.votes.task_done()
