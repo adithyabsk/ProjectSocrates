@@ -65,10 +65,10 @@ MAX_FRAC_VOTES = model_parameters["MAX_FRAC_VOTES"] # proportion
 VOTE_PROB = model_parameters["VOTE_PROB"] # probablity of active user vote
 DUTY_CYCLE = model_parameters["DUTY_CYCLE"] # in seconds
 # DB
-DB_HOST = secrets["DB_HOST"]
-DB_USER = secrets["DB_USER"]
-DB_PASS = secrets["DB_PASS"]
-DB_ID = secrets["DB_ID"]
+DB_HOST = db_keys["DB_HOST"]
+DB_USER = db_keys["DB_USER"]
+DB_PASS = db_keys["DB_PASS"]
+DB_ID = db_keys["DB_ID"]
 
 class VoteTranscriber(threading.Thread):
   CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")

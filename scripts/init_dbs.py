@@ -2,20 +2,22 @@
 
 import pymysql.cursors
 import os
+import json
 
 # DB
 db_keys = None
 if os.path.isfile("db_keys.config"):
-  with open("db_key.config", "r") as model_file:
-    model_parameters = json.load(model_file)
+  with open("db_keys.config", "r") as keys_file:
+    db_keys = json.load(keys_file)
 else:
-  sys.exit("db_key.config was not found, please update model config file")
+  sys.exit("db_keys.config was not found, please update model config file")
+
 
 # Config DB
-DB_HOST = secrets["DB_HOST"]
-DB_USER = secrets["DB_USER"]
-DB_PASS = secrets["DB_PASS"]
-DB_ID = secrets["DB_ID"]
+DB_HOST = db_keys["DB_HOST"]
+DB_USER = db_keys["DB_USER"]
+DB_PASS = db_keys["DB_PASS"]
+DB_ID = db_keys["DB_ID"]
 
 # Connect to the database
 votes_conn = pymysql.connect(host=DB_HOST,
