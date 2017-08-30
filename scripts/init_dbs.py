@@ -26,11 +26,11 @@ votes_conn = pymysql.connect(host=DB_HOST,
                              cursorclass=pymysql.cursors.DictCursor)
 
 def set_votes_schema():
-	try:
-		with votes_conn.cursor() as cursor:
-			sql = "CREATE TABLE `Votes` (`video_id` VARCHAR(11) NOT NULL, `votes` INT, `multiplier` DOUBLE, `play_date` DATE, `create_date` DATE, PRIMARY KEY (`video_id`))"
-			cursor.execute(sql)
-		votes_conn.commit()
+  try:
+    with votes_conn.cursor() as cursor:
+      sql = "CREATE TABLE `Votes` (`video_id` VARCHAR(11) NOT NULL, `votes` INT, `multiplier` DOUBLE, `play_date` DATE, `create_date` DATE, PRIMARY KEY (`video_id`))"
+      cursor.execute(sql)
+    votes_conn.commit()
 
 def set_ledger_schema():
   try:
