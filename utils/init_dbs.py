@@ -6,11 +6,11 @@ import json
 
 # DB
 db_keys = None
-if os.path.isfile("db_keys.config"):
-  with open("db_keys.config", "r") as keys_file:
+if os.path.isfile("../keys/db_keys.config"):
+  with open("../keys/db_keys.config", "r") as keys_file:
     db_keys = json.load(keys_file)
 else:
-  sys.exit("db_keys.config was not found, please update model config file")
+  sys.exit("../keys/db_keys.config was not found, please update model config file")
 
 
 # Config DB

@@ -18,11 +18,11 @@ from selenium.webdriver.common.keys import Keys
 
 # Get Keys Here
 db_keys = None
-if os.path.isfile("db_keys.config"):
-  with open("db_keys.config", "r") as db_file:
+if os.path.isfile("../keys/db_keys.config"):
+  with open("../keys/db_keys.config", "r") as db_file:
     db_keys = json.load(db_file)
 else:
-  sys.exit("db_keys.config was not found, please update model config file")
+  sys.exit("../keys/db_keys.config was not found, please update model config file")
 
 DB_HOST = db_keys["DB_HOST"]
 DB_USER = db_keys["DB_USER"]

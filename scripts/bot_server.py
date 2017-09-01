@@ -27,25 +27,25 @@ import paypalrestsdk
 # Load Secretes and Model Parameters
 # Secrets
 secrets = None
-if os.path.isfile("bot_keys.config"):
-  with open("bot_keys.config", "r") as keys_file:
+if os.path.isfile("../keys/bot_keys.config"):
+  with open("../keys/bot_keys.config", "r") as keys_file:
     secrets = json.load(keys_file)
 else:
-  sys.exit("bot_keys.config was not found, please update sample file with keys")
+  sys.exit("../keys/bot_keys.config was not found, please update sample file with keys")
 # Model
 model_parameters = None
-if os.path.isfile("model.config"):
-  with open("model.config", "r") as model_file:
+if os.path.isfile("../keys/model.config"):
+  with open("../keys/model.config", "r") as model_file:
     model_parameters = json.load(model_file)
 else:
-  sys.exit("model.config was not found, please update model config file")
+  sys.exit("../keys/model.config was not found, please update model config file")
 # DB
 db_keys = None
-if os.path.isfile("db_keys.config"):
-  with open("db_keys.config", "r") as key_file:
+if os.path.isfile("../keys/db_keys.config"):
+  with open("../keys/db_keys.config", "r") as key_file:
     db_keys = json.load(key_file)
 else:
-  sys.exit("db_keys.config was not found, please update model config file")
+  sys.exit("../keys/db_keys.config was not found, please update model config file")
 
 # Set Secrets and Model Parameters
 # YT
@@ -118,8 +118,9 @@ class VoteTranscriber(threading.Thread):
         time.sleep(1 / TWITCH_RATE)
 
 class VoteProcessor(threading.Thread):
-  def __init__(self, votes):
+  def __init__(self, votes, socket):
     threading.Thread.__init__(self)
+    self.socket = socket
     self.votes = votes
     self.votes_conn = pymysql.connect(host=DB_HOST,
                                       user=DB_USER,
@@ -127,6 +128,16 @@ class VoteProcessor(threading.Thread):
                                       db=DB_ID,
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
+
+  def chat(self, msg):
+    """
+    Send a chat message to the server.
+    Keyword arguments:
+    sock -- the socket over which to send the message
+    msg  -- the message to be sent
+    """
+    self.socket.send("PRIVMSG #{} :{}".format(TWITCH_CHAN, msg))
+
 
   def put_vote(self, video_id):
     try:
@@ -148,15 +159,88 @@ class VoteProcessor(threading.Thread):
 
     return results["items"][0]["id"] if results["items"] else None
 
+  def parse_bot(self, msg):
+    parts = msg.split(' ')i
+    com = parts[0]
+    num = 5
+
+    if(len(parts) == 2):
+      try:
+        num = max(int(parts[1]), 20)
+      except:
+        pass
+    return self, com, num
+
+  def top_command(self, com, num):
+    dat = []
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY DESC score LIMIT " + str(num) +  ";"
+    with self.votes_conn.cursor() as cursor:
+      cursor.execute(sql)
+      for row in cursor:
+        dat += [(row["video_id"],row["votes"],row["multiplier"])]
+
+    printvideos(dat, "Top")
+
+  def random_command(self, com, num):
+    dat = []
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT " + str(num) +  ";"
+    with self.votes_conn.cursor() as cursor:
+      cursor.execute(sql)
+      for row in cursor:
+        dat += [(row["video_id"],row["votes"],row["multiplier"])]
+
+    printvideos(dat, "Random")
+
+
+  def hot_command(self, com, num):
+    dat = []
+    sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY DESC score LIMIT " + str(num) +  ";"
+    with self.votes_conn.cursor() as cursor:
+      cursor.execute(sql)
+      for row in cursor:
+        dat += [(row["video_id"],row["votes"],row["multiplier"])]
+
+    printvideos(dat, "Hot")
+
+  def printvideos(dat, t):
+    sp = u" "
+    header = t + " Videos (" + len(dat) + ")"
+    header = header.replace(" ", sp) + sp*(30-len(header))
+    body = ""    
+
+
+    for vid in dat:
+      line = "[" + dat[0] + "]"
+      line += sp*(30-len(line))
+      body += line
+      line = "This is a test title"
+      line = line.replace(" ", sp) +  sp*(len(line) % 30)
+      body += line
+      line = "+" + dat[1] + "  " + dat[2] + "x"
+      line = line.replace(" ", sp) + sp*(len(line) - 30)
+      body += line
+      body += sp*30
+
+    chat(body)
+      
+   
   def process_message(self, m):
     # Processing to prevent uncessary calling of YT API
-    if len(m) != 11: return None
-    else: return self.verify_video(m)
 
-  def add_vote(self, username, video_id):
-    try:
-      with self.votes_conn.cursor() as cursor:
-        sql = "INSERT INTO `Ledger` (`username`, `video_id`, `timestamp`) VALUES (%s, %s, %s)"
+    #Bot Commands
+    if(m[0] == "!"):
+      message = m[1:]
+      if(message.lower() == "top"):
+        top_command(parse_bot(self, message))
+      if(message.lower() == "random"):
+        random_command(parse_bot(self, message))
+      if(message.lower() == "hot"):
+        hot_command(parse_bot(self, message))
+
+      return None
+
+
+    if len(m) != 11: return None
         cursor.execute(sql, (username, video_id, time.strftime("%Y-%m-%d %H:%M:%S")))
       self.votes_conn.commit()
     except Exception as e:
@@ -178,7 +262,7 @@ def main():
   s = socket.socket()
   votes = Queue()
   t1 = VoteTranscriber(votes, s)
-  t2 = VoteProcessor(votes)
+  t2 = VoteProcessor(votes, s)
   t1.daemon = True
   t2.daemon = True
   t1.start()
@@ -191,4 +275,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         raise
-
