@@ -1,15 +1,17 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Python imports
 import json
 import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
 import os.path
 import socket
 import re
 import time
 import threading
 from Queue import Queue
-
 # MariaDB API
 import pymysql.cursors
 
@@ -70,26 +72,31 @@ DB_USER = db_keys["DB_USER"]
 DB_PASS = db_keys["DB_PASS"]
 DB_ID = db_keys["DB_ID"]
 
-class VoteTranscriber(threading.Thread):
-  CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
 
-  def __init__(self, votes, socket):
+class TwitchHandler(threading.Thread):
+  CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+  
+  def __init__(self, chat_log, commands, socket):
     threading.Thread.__init__(self)
-    self.votes = votes
+    self.chat_log = chat_log
+    self.commands = commands
     self.socket = socket
     self.socket.connect((TWITCH_HOST, TWITCH_PORT))
     self.socket.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
     self.socket.send("NICK {}\r\n".format(TWITCH_NICK).encode("utf-8"))
     self.socket.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
 
-  def chat(self, sock, msg):
+  def chat(self, msg):
     """
     Send a chat message to the server.
     Keyword arguments:
     sock -- the socket over which to send the message
     msg  -- the message to be sent
     """
-    sock.send("PRIVMSG #{} :{}".format(TWITCH_CHAN, msg))
+    package = u"PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
+    package1 = u":videovotebot!videovotebot@videovotebot@tmi.twitch.tv PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
+    self.socket.send(package1)
+    print("Tried to print: {}".format(package1.decode("utf-8")))
 
   def set_slow_mode(self, sock, time):
     """
@@ -102,6 +109,32 @@ class VoteTranscriber(threading.Thread):
       self.chat(sock, "/slowoff")
     else:
       self.chat(sock, "/slow {}".format(time))
+
+  def run(self):
+    while True:
+      response = self.socket.recv(1024).decode("utf-8")
+      if response == "PING :tmi.twitch.tv\r\n":
+        self.socket.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
+      else:
+        username = re.search(r"\w+", response).group(0) # return the entire match
+        message = VoteTranscriber.CHAT_MSG.sub("", response)
+        username = "".join(str(username).split())
+        message = "".join(str(message).split())
+        self.chat_log.put((username, message))
+        print "{} put to queue by {}".format((username, message), self.name)
+        time.sleep(1 / TWITCH_RATE)
+
+class VoteTranscriber(threading.Thread):
+  CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
+
+  def __init__(self, votes, socket):
+    threading.Thread.__init__(self)
+    self.votes = votes
+    self.socket = socket
+    self.socket.connect((TWITCH_HOST, TWITCH_PORT))
+    self.socket.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
+    self.socket.send("NICK {}\r\n".format(TWITCH_NICK).encode("utf-8"))
+    self.socket.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
 
   def run(self):
     while True:
@@ -129,14 +162,6 @@ class VoteProcessor(threading.Thread):
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
 
-  def chat(self, msg):
-    """
-    Send a chat message to the server.
-    Keyword arguments:
-    sock -- the socket over which to send the message
-    msg  -- the message to be sent
-    """
-    self.socket.send("PRIVMSG #{} :{}".format(TWITCH_CHAN, msg))
 
 
   def put_vote(self, video_id):
@@ -160,7 +185,7 @@ class VoteProcessor(threading.Thread):
     return results["items"][0]["id"] if results["items"] else None
 
   def parse_bot(self, msg):
-    parts = msg.split(' ')i
+    parts = msg.split(' ')
     com = parts[0]
     num = 5
 
@@ -169,17 +194,22 @@ class VoteProcessor(threading.Thread):
         num = max(int(parts[1]), 20)
       except:
         pass
-    return self, com, num
+    return com, num
 
-  def top_command(self, com, num):
+  def top_command(self, com, num=None):
+    if not num:
+      try: num = int(num)
+      except ValueError:
+      	num = 5
+      if num <=0 or num > 10: num = 5
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY DESC score LIMIT " + str(num) +  ";"
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes * multiplier) AS score FROM Votes WHERE play_date = '0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
         dat += [(row["video_id"],row["votes"],row["multiplier"])]
 
-    printvideos(dat, "Top")
+    self.printvideos(dat, "Top")
 
   def random_command(self, com, num):
     dat = []
@@ -189,7 +219,7 @@ class VoteProcessor(threading.Thread):
       for row in cursor:
         dat += [(row["video_id"],row["votes"],row["multiplier"])]
 
-    printvideos(dat, "Random")
+    self.printvideos(dat, "Random")
 
 
   def hot_command(self, com, num):
@@ -200,28 +230,27 @@ class VoteProcessor(threading.Thread):
       for row in cursor:
         dat += [(row["video_id"],row["votes"],row["multiplier"])]
 
-    printvideos(dat, "Hot")
+    self.printvideos(dat, "Hot")
 
-  def printvideos(dat, t):
+  def printvideos(self, dat, t):
     sp = u" "
-    header = t + " Videos (" + len(dat) + ")"
+    header = "{} Videos ({})".format(t, len(dat))
     header = header.replace(" ", sp) + sp*(30-len(header))
     body = ""    
 
-
     for vid in dat:
-      line = "[" + dat[0] + "]"
+      line = "[{}]".format(dat[0])
       line += sp*(30-len(line))
       body += line
       line = "This is a test title"
       line = line.replace(" ", sp) +  sp*(len(line) % 30)
       body += line
-      line = "+" + dat[1] + "  " + dat[2] + "x"
+      line = "+{}  {}x".format(dat[1], dat[2])
       line = line.replace(" ", sp) + sp*(len(line) - 30)
       body += line
       body += sp*30
 
-    chat(body)
+    self.chat(body)
       
    
   def process_message(self, m):
@@ -231,20 +260,25 @@ class VoteProcessor(threading.Thread):
     if(m[0] == "!"):
       message = m[1:]
       if(message.lower() == "top"):
-        top_command(parse_bot(self, message))
+        self.top_command(*self.parse_bot(message))
       if(message.lower() == "random"):
-        random_command(parse_bot(self, message))
+        self.random_command(*self.arse_bot(message))
       if(message.lower() == "hot"):
-        hot_command(parse_bot(self, message))
-
+        self.hot_command(*self.parse_bot(message))
       return None
 
-
     if len(m) != 11: return None
+    else: return self.verify_video(m)
+ 
+  def add_vote(self, username, video_id):
+    try:
+      with self.votes_conn.cursor() as cursor:
+        sql = "INSERT INTO `Ledger` (`username`, `video_id`, `timestamp`) VALUES (%s, %s, %s)"
         cursor.execute(sql, (username, video_id, time.strftime("%Y-%m-%d %H:%M:%S")))
+    
       self.votes_conn.commit()
     except Exception as e:
-      print "There was an error 2 {}".format(e)
+      print "There was an error 2 {}".format(e) 
     
     self.put_vote(video_id)
 
