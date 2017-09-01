@@ -3,6 +3,9 @@
 # Python imports
 import time
 import sqlite3
+import os
+import json
+import pymysql.cursors
 
 # Reddit API
 import praw
@@ -16,17 +19,16 @@ from selenium.webdriver.common.keys import Keys
 # Get Keys Here
 db_keys = None
 if os.path.isfile("db_keys.config"):
-  with open("db_key.config", "r") as model_file:
-    model_parameters = json.load(model_file)
+  with open("db_keys.config", "r") as db_file:
+    db_keys = json.load(db_file)
 else:
-  sys.exit("db_key.config was not found, please update model config file")
+  sys.exit("db_keys.config was not found, please update model config file")
 
-DB_HOST = secrets["DB_HOST"]
-DB_USER = secrets["DB_USER"]
-DB_PASS = secrets["DB_PASS"]
-DB_ID = secrets["DB_ID"]
+DB_HOST = db_keys["DB_HOST"]
+DB_USER = db_keys["DB_USER"]
+DB_PASS = db_keys["DB_PASS"]
+DB_ID = db_keys["DB_ID"]
 
-votes = votes
 votes_conn = pymysql.connect(host=DB_HOST,
                              user=DB_USER,
                              password=DB_PASS,
@@ -42,27 +44,32 @@ def play_new_video(browser, link):
     player_status = browser.execute_script("return document.getElementById('movie_player').getPlayerState()")
     # driver.find_element_by_xpath('/html/body').send_keys(Keys.F11)
     browser.maximize_window()
+    time.sleep(5)
+    actions = webdriver.ActionChains(browser)
+    actions.send_keys('f')
+    actions.perform()
     while player_status:
         time.sleep(1)
         player_status = browser.execute_script("return document.getElementById('movie_player').getPlayerState()")
-    browser.find_element_by_xpath('/html/body').send_keys(Keys.ESCAPE)
+    actions.send_keys(u'\ue00c')
 
 def get_top_unplayed_video():
     try:
       with votes_conn.cursor() as cursor:
-        sql = "SELECT `video_id`, `votes`, `multiplier`, `play_date` (`multiplier` * `votes`) AS score WHERE `play_date` = "0000-00-00" ORDER BY score LIMIT 1"
+        sql = "SELECT `video_id`, `votes`, `multiplier`, `play_date`, (`multiplier` * `votes`) AS score FROM Votes WHERE `play_date` = '0000-00-00' ORDER BY score DESC LIMIT 1"
         cursor.execute(sql)
-        return cursor[0]["video_id"]
-    except Exception e:
+	print(cursor)
+        return cursor.fetchone()["video_id"]
+    except Exception as e:
       print "There was an error {}".format(e)
 
 def set_video_as_played(video_id):
     try:
       with votes_conn.cursor() as cursor:
-        sql = "UPDATE `Votes` SET play_date = %s WHERE `video_id` = %s"
+        sql = "UPDATE `Votes` SET `play_date` = %s WHERE `video_id` = %s"
         cursor.execute(sql, (time.strftime("%Y-%m-%d"), video_id))
       votes_conn.commit()
-    except Exception e:
+    except Exception as e:
       print "There was an error {}".format(e)
 
 def run():
@@ -72,9 +79,9 @@ def run():
         try:
             video_id = get_top_unplayed_video()
         except:
-
-        link = "www.youtube.com/watch?v={}".format(video_id)
-        play_new_video(link)
+            pass
+        link = "https://www.youtube.com/watch?v={}".format(video_id)
+        play_new_video(browser,link)
         set_video_as_played(video_id)
 
 
