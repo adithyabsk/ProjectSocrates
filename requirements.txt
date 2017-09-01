@@ -3,7 +3,6 @@ certifi==2017.7.27.1
 cffi==1.10.0
 chardet==3.0.4
 circuits==3.2
-crontab==0.21.3
 cryptography==2.0.3
 enum34==1.1.6
 google-api-python-client==1.6.2
@@ -19,6 +18,8 @@ pyasn1-modules==0.0.11
 pycparser==2.18
 PyMySQL==0.7.11
 pyOpenSSL==17.2.0
+python-crontab==2.2.4
+python-dateutil==2.6.1
 python-twitch-client==0.3.0
 requests==2.18.4
 rsa==3.4.2
