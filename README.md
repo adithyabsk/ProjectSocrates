@@ -1,12 +1,25 @@
 # ProjectSocrates
 
-Create a virutalenv and name the virtualenv ProjectSocrates
+Steps to get Project Up and running
 
-Install dependencies using: ```pip install requirements.txt```
+1. Intall git
 
-Next make sure to run ```init_dbs.py``` (Schema information is in this file)
-Then copy over ```keys.config.sample``` to ```keys.config```
-&&
-also copy over ```model.config.sample``` to ```model.config```
+2. Clone repo: https://github.com/adithyabsk/ProjectSocrates.git
+	* copy over the var and etc directories from ```/backups``` if necessary
 
-now run ```bot_server.py```
+3. Run this command ```yum -y install $(cat utils/installed-software.log)``` from the project home
+
+4. Intall [pip](https://pip.pypa.io/en/stable/installing/)
+	* For CentOS do [this](https://www.liquidweb.com/kb/how-to-install-pip-on-centos-7/)
+
+5. Add the keys to the keys folder by copying over:
+	* ```keys.config.sample --> keys.config```
+	* ```db_keys.config.sample --> db_keys.config```
+	* ```model.config.sample --> model.config```
+
+6. Next, run ```utils/setup.py``` from either utils or the main directory
+
+7. Restore the database backup or run ```utils/init_dbs.py```
+	* Make sure to properly configure the database
+
+8. Copy over the systemd files if necessary
