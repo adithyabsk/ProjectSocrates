@@ -3,6 +3,7 @@ certifi==2017.7.27.1
 cffi==1.10.0
 chardet==3.0.4
 circuits==3.2
+crontab==0.21.3
 cryptography==2.0.3
 enum34==1.1.6
 google-api-python-client==1.6.2
