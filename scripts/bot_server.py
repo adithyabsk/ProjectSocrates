@@ -72,14 +72,15 @@ DB_USER = db_keys["DB_USER"]
 DB_PASS = db_keys["DB_PASS"]
 DB_ID = db_keys["DB_ID"]
 
-
-class TwitchHandler(threading.Thread):
+class VoteTranscriber(threading.Thread):
   CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-  
-  def __init__(self, chat_log, commands, socket):
+
+  def __init__(self, votes, commands, socket):
     threading.Thread.__init__(self)
-    self.chat_log = chat_log
+
+    self.votes = votes
     self.commands = commands
+
     self.socket = socket
     self.socket.connect((TWITCH_HOST, TWITCH_PORT))
     self.socket.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
@@ -87,24 +88,12 @@ class TwitchHandler(threading.Thread):
     self.socket.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
 
   def chat(self, msg):
-    """
-    Send a chat message to the server.
-    Keyword arguments:
-    sock -- the socket over which to send the message
-    msg  -- the message to be sent
-    """
-    package = u"PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
-    package1 = u":videovotebot!videovotebot@videovotebot@tmi.twitch.tv PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
-    self.socket.send(package1)
-    print("Tried to print: {}".format(package1.decode("utf-8")))
+    package = u"PRIVMSG #{} :{}\r\n".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
+    # package1 = u":videovotebot!videovotebot@videovotebot@tmi.twitch.tv PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
+    self.socket.send(package)
+    print("Tried to print: {}".format(package.decode("utf-8")))
 
   def set_slow_mode(self, sock, time):
-    """
-    Set or unset slowmode
-    Keyword arguments:
-    sock -- the socket over which to send the message
-    time -- the length of time in seconds to set slow mode
-    """
     if time == 0:
       self.chat(sock, "/slowoff")
     else:
@@ -120,49 +109,27 @@ class TwitchHandler(threading.Thread):
         message = VoteTranscriber.CHAT_MSG.sub("", response)
         username = "".join(str(username).split())
         message = "".join(str(message).split())
-        self.chat_log.put((username, message))
-        print "{} put to queue by {}".format((username, message), self.name)
-        time.sleep(1 / TWITCH_RATE)
-
-class VoteTranscriber(threading.Thread):
-  CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
-
-  def __init__(self, votes, socket):
-    threading.Thread.__init__(self)
-    self.votes = votes
-    self.socket = socket
-    self.socket.connect((TWITCH_HOST, TWITCH_PORT))
-    self.socket.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
-    self.socket.send("NICK {}\r\n".format(TWITCH_NICK).encode("utf-8"))
-    self.socket.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
-
-  def run(self):
-    while True:
-      response = self.socket.recv(1024).decode("utf-8")
-      if response == "PING :tmi.twitch.tv\r\n":
-        self.socket.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
-      else:
-        username = re.search(r"\w+", response).group(0) # return the entire match
-        message = VoteTranscriber.CHAT_MSG.sub("", response)
-        username = "".join(str(username).split())
-        message = "".join(str(message).split())
         self.votes.put((username, message))
         print "{} put to queue by {}".format((username, message), self.name)
         time.sleep(1 / TWITCH_RATE)
+      try:
+        message = self.commands.get_nowait() # Can raise error
+        self.chat(message)
+        self.commands.task_done()
+      except: pass
 
 class VoteProcessor(threading.Thread):
-  def __init__(self, votes, socket):
+  def __init__(self, votes, commands, socket):
     threading.Thread.__init__(self)
     self.socket = socket
     self.votes = votes
+    self.commands = commands
     self.votes_conn = pymysql.connect(host=DB_HOST,
                                       user=DB_USER,
                                       password=DB_PASS,
                                       db=DB_ID,
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
-
-
 
   def put_vote(self, video_id):
     try:
@@ -250,9 +217,8 @@ class VoteProcessor(threading.Thread):
       body += line
       body += sp*30
 
-    self.chat(body)
-      
-   
+      self.commands.put(msg)
+
   def process_message(self, m):
     # Processing to prevent uncessary calling of YT API
 
@@ -284,13 +250,15 @@ class VoteProcessor(threading.Thread):
 
   def run(self):
     while True:
-      username, message = self.votes.get()
-      video_id = self.process_message(message)
-      if video_id != None:
-        self.add_vote(username, video_id)
-        print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
-      else: print "{} popped from queue by {}".format((username, message), self.name)
-      self.votes.task_done()
+      try:
+        username, message = self.votes.get_nowait() # Can raise error
+        video_id = self.process_message(message)
+        if video_id != None:
+          self.add_vote(username, video_id)
+          print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
+        else: print "{} popped from queue by {}".format((username, message), self.name)
+        self.votes.task_done()
+      except: pass
 
 def main():
   s = socket.socket()
