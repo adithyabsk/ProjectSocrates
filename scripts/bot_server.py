@@ -72,32 +72,32 @@ DB_USER = db_keys["DB_USER"]
 DB_PASS = db_keys["DB_PASS"]
 DB_ID = db_keys["DB_ID"]
 
-class VoteTranscriber(threading.Thread):
+
+class TwitchWriter(threading.Thread):
+  def __init__(self, response_queue, socket):
+    threading.Thread.__init__(self)
+    
+    self.socket = socket
+    self.response_queue = response_queue
+  
+  def chat(self, msg):
+    self.socket.send("PRIVMSG {} :{}\r\n".format(TWITCH_CHAN, msg).encode("utf-8"))
+
+  def run(self):
+    while True:
+      # thread is blocked by get() so sleep is not necessary
+      msg = self.response_queue.get()
+      self.chat(msg)
+      self.response_queue.task_done()
+
+class TwitchReader(threading.Thread):
   CHAT_MSG = re.compile(r"^:\w+!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :")
 
-  def __init__(self, votes, commands, socket):
+  def __init__(self, message_queue, socket):
     threading.Thread.__init__(self)
 
-    self.votes = votes
-    self.commands = commands
-
+    self.message_queue = message_queue
     self.socket = socket
-    self.socket.connect((TWITCH_HOST, TWITCH_PORT))
-    self.socket.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
-    self.socket.send("NICK {}\r\n".format(TWITCH_NICK).encode("utf-8"))
-    self.socket.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
-
-  def chat(self, msg):
-    package = u"PRIVMSG #{} :{}\r\n".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
-    # package1 = u":videovotebot!videovotebot@videovotebot@tmi.twitch.tv PRIVMSG #{} :{}".format(TWITCH_CHAN, msg.encode("utf-8")).encode("utf-8")
-    self.socket.send(package)
-    print("Tried to print: {}".format(package.decode("utf-8")))
-
-  def set_slow_mode(self, sock, time):
-    if time == 0:
-      self.chat(sock, "/slowoff")
-    else:
-      self.chat(sock, "/slow {}".format(time))
 
   def run(self):
     while True:
@@ -106,24 +106,20 @@ class VoteTranscriber(threading.Thread):
         self.socket.send("PONG :tmi.twitch.tv\r\n".encode("utf-8"))
       else:
         username = re.search(r"\w+", response).group(0) # return the entire match
-        message = VoteTranscriber.CHAT_MSG.sub("", response)
+        message = TwitchReader.CHAT_MSG.sub("", response)
         username = "".join(str(username).split())
         message = "".join(str(message).split())
-        self.votes.put((username, message))
+        self.message_queue.put((username, message))
         print "{} put to queue by {}".format((username, message), self.name)
         time.sleep(1 / TWITCH_RATE)
-      try:
-        message = self.commands.get_nowait() # Can raise error
-        self.chat(message)
-        self.commands.task_done()
-      except: pass
 
-class VoteProcessor(threading.Thread):
-  def __init__(self, votes, commands, socket):
+class MessageProcessor(threading.Thread):
+  def __init__(self, message_queue, response_queue, socket):
     threading.Thread.__init__(self)
+
     self.socket = socket
-    self.votes = votes
-    self.commands = commands
+    self.message_queue = message_queue
+    self.response_queue = response_queue
     self.votes_conn = pymysql.connect(host=DB_HOST,
                                       user=DB_USER,
                                       password=DB_PASS,
@@ -131,45 +127,14 @@ class VoteProcessor(threading.Thread):
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
 
-  def put_vote(self, video_id):
-    try:
-      with self.votes_conn.cursor() as cursor:
-        sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, 1, 1.0, '0000-00-00', %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
-        cursor.execute(sql, (video_id, time.strftime("%Y-%m-%d")))
-      self.votes_conn.commit()
-    except Exception as e:
-      print "There was an error 1 {}".format(e)
-
-  def verify_video(self, video_id):
-    youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
-      developerKey=YOUTUBE_DEVELOPER_KEY)
-
-    results = youtube.videos().list(
-      part="id",
-      id=video_id
-    ).execute()
-
-    return results["items"][0]["id"] if results["items"] else None
-
-  def parse_bot(self, msg):
-    parts = msg.split(' ')
-    com = parts[0]
-    num = 5
-
-    if(len(parts) == 2):
-      try:
-        num = max(int(parts[1]), 20)
-      except:
-        pass
-    return com, num
-
   def top_command(self, com, num=5):
     try: num = int(num)
-    except ValueError:
-      	pass
+    except ValueError: pass
     if num <=0 or num > 10: num = 5
+   
     dat = []
     sql = "SELECT video_id, votes, multiplier, play_date, (votes * multiplier) AS score FROM Votes WHERE play_date = '0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
+    
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
@@ -178,12 +143,13 @@ class VoteProcessor(threading.Thread):
     self.printvideos(dat, "Top")
 
   def random_command(self, com, num):
-    dat = []
     try: num = int(num)
-    except ValueError:
-      	pass
+    except ValueError: pass
     if num <=0 or num > 10: num = 5
+    
+    dat = []
     sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT {}".format(str(num))
+    
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
@@ -193,12 +159,13 @@ class VoteProcessor(threading.Thread):
 
 
   def hot_command(self, com, num):
-    dat = []
     try: num = int(num)
-    except ValueError:
-      	pass
+    except ValueError: pass
     if num <=0 or num > 10: num = 5
+    
+    dat = []
     sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
+    
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
@@ -226,9 +193,9 @@ class VoteProcessor(threading.Thread):
       body += line
       body += sp*linlen + " "
 
-    print(header + " " + body)
-
-      #self.commands.put(msg)
+    msg = header + " " + body
+    print(msg)
+    self.response_queue.put(msg)
 
   def process_message(self, m):
     # Processing to prevent uncessary calling of YT API
@@ -239,15 +206,37 @@ class VoteProcessor(threading.Thread):
       if(message.lower() == "top"):
         self.top_command(*self.parse_bot(message))
       if(message.lower() == "random"):
-        self.random_command(*self.arse_bot(message))
+        self.random_command(*self.parse_bot(message))
       if(message.lower() == "hot"):
         self.hot_command(*self.parse_bot(message))
       return None
 
     if len(m) != 11: return None
     else: return self.verify_video(m)
+
+  def parse_bot(self, msg):
+    parts = msg.split(' ')
+    com = parts[0]
+    num = 5
+
+    if(len(parts) == 2):
+      try:
+        num = max(int(parts[1]), 20)
+      except:
+        pass
+    return com, num
  
-  def add_vote(self, username, video_id):
+  def verify_video(self, video_id):
+    youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
+      developerKey=YOUTUBE_DEVELOPER_KEY)
+
+    results = youtube.videos().list(
+      part="id",
+      id=video_id
+    ).execute()
+
+    return results["items"][0]["id"] if results["items"] else None
+  def add_ledger(self, username, video_id):
     try:
       with self.votes_conn.cursor() as cursor:
         sql = "INSERT INTO `Ledger` (`username`, `video_id`, `timestamp`) VALUES (%s, %s, %s)"
@@ -257,30 +246,48 @@ class VoteProcessor(threading.Thread):
     except Exception as e:
       print "There was an error 2 {}".format(e) 
     
-    self.put_vote(video_id)
+  def put_vote(self, video_id):
+    try:
+      with self.votes_conn.cursor() as cursor:
+        sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, 1, 1.0, '0000-00-00', %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
+        cursor.execute(sql, (video_id, time.strftime("%Y-%m-%d")))
+      self.votes_conn.commit()
+    except Exception as e:
+      print "There was an error 1 {}".format(e)
 
   def run(self):
     while True:
-      try:
-        username, message = self.votes.get_nowait() # Can raise error
-        video_id = self.process_message(message)
-        if video_id != None:
-          self.add_vote(username, video_id)
-          print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
-        else: print "{} popped from queue by {}".format((username, message), self.name)
-        self.votes.task_done()
-      except: pass
+      username, message = self.message_queue.get()
+      video_id = self.process_message(message)
+      if video_id != None:
+        self.add_ledger(username, video_id)
+        self.add_vote(video_id)
+        print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
+      else: print "{} popped from queue by {}".format((username, message), self.name)
+      self.message_queue.task_done()
 
 def main():
   s = socket.socket()
-  votes = Queue()
-  commands = Queue()
-  t1 = VoteTranscriber(votes, commands, s)
-  t2 = VoteProcessor(votes, commands,  s)
+  s.connect((TWITCH_HOST, TWITCH_PORT))
+  s.send("PASS {}\r\n".format(TWITCH_OAUTH).encode("utf-8"))
+  s.send("NICK {}\r\n".format(TWITCH_NICK).encode("utf-8"))
+  s.send("JOIN {}\r\n".format(TWITCH_CHAN).encode("utf-8"))
+  
+  response_queue = Queue()
+  message_queue = Queue()
+  
+  t1 = TwitchWriter(response_queue, s)
+  t2 = TwitchReader(message_queue, s)
+  t3 = MessageProcessor(message_queue, response_queue, s)  
+
   t1.daemon = True
   t2.daemon = True
+  t3.daemon = True
+  
   t1.start()
   t2.start()
+  t3.start()
+
   while True:
       time.sleep(10)
 
