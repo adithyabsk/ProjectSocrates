@@ -163,12 +163,11 @@ class VoteProcessor(threading.Thread):
         pass
     return com, num
 
-  def top_command(self, com, num=None):
-    if not num:
-      try: num = int(num)
-      except ValueError:
-      	num = 5
-      if num <=0 or num > 10: num = 5
+  def top_command(self, com, num=5):
+    try: num = int(num)
+    except ValueError:
+      	pass
+    if num <=0 or num > 10: num = 5
     dat = []
     sql = "SELECT video_id, votes, multiplier, play_date, (votes * multiplier) AS score FROM Votes WHERE play_date = '0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
     with self.votes_conn.cursor() as cursor:
@@ -180,7 +179,11 @@ class VoteProcessor(threading.Thread):
 
   def random_command(self, com, num):
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT " + str(num) +  ";"
+    try: num = int(num)
+    except ValueError:
+      	pass
+    if num <=0 or num > 10: num = 5
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT {}".format(str(num))
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
@@ -191,7 +194,11 @@ class VoteProcessor(threading.Thread):
 
   def hot_command(self, com, num):
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY DESC score LIMIT " + str(num) +  ";"
+    try: num = int(num)
+    except ValueError:
+      	pass
+    if num <=0 or num > 10: num = 5
+    sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
       for row in cursor:
@@ -217,7 +224,9 @@ class VoteProcessor(threading.Thread):
       body += line
       body += sp*30
 
-      self.commands.put(msg)
+    print(header + body)
+
+      #self.commands.put(msg)
 
   def process_message(self, m):
     # Processing to prevent uncessary calling of YT API
@@ -263,8 +272,9 @@ class VoteProcessor(threading.Thread):
 def main():
   s = socket.socket()
   votes = Queue()
-  t1 = VoteTranscriber(votes, s)
-  t2 = VoteProcessor(votes, s)
+  commands = Queue()
+  t1 = VoteTranscriber(votes, commands, s)
+  t2 = VoteProcessor(votes, commands,  s)
   t1.daemon = True
   t2.daemon = True
   t1.start()
