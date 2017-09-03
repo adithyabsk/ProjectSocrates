@@ -207,24 +207,26 @@ class VoteProcessor(threading.Thread):
     self.printvideos(dat, "Hot")
 
   def printvideos(self, dat, t):
+    linlen = 40
     sp = u" "
+    nb = u" "
+    rt = u"\r\n"
     header = "{} Videos ({})".format(t, len(dat))
-    header = header.replace(" ", sp) + sp*(30-len(header))
     body = ""    
 
     for vid in dat:
-      line = "[{}]".format(dat[0])
-      line += sp*(30-len(line))
+      line = "[{}]".format(vid[0])
+      line = line + sp*(linlen-len(line))
       body += line
-      line = "This is a test title"
-      line = line.replace(" ", sp) +  sp*(len(line) % 30)
+      line = "This is a test title a aha aha"
+      line = line.replace(" ", rt) +  sp*(len(line) % linlen)
       body += line
-      line = "+{}  {}x".format(dat[1], dat[2])
-      line = line.replace(" ", sp) + sp*(len(line) - 30)
+      line = "+{}  {}x".format(vid[1], vid[2])
+      line = line.replace(" ", rt) + sp*(len(line) - linlen)
       body += line
-      body += sp*30
+      body += sp*linlen + " "
 
-    print(header + body)
+    print(header + " " + body)
 
       #self.commands.put(msg)
 
