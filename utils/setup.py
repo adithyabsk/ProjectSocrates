@@ -18,5 +18,3 @@ os.system("pip install -r requirements.txt")
 os.system("pip list")
 
 os.system("cron_script.py")
-
-os.system("")
