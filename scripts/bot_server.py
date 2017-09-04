@@ -164,27 +164,10 @@ class MessageProcessor(threading.Thread):
     self.printvideos(dat, "Hot")
 
   def printvideos(self, dat, t):
-    linlen = 40
-    sp = u" "
-    nb = u" "
-    rt = u"\r\n"
-    header = "{} Videos ({})".format(t, len(dat))
-    body = ""    
-
-    for vid in dat:
-      line = "[{}]".format(vid[0])
-      line = line + sp*(linlen-len(line))
-      body += line
-      line = "This is a test title a aha aha"
-      line = line.replace(" ", rt) +  sp*(len(line) % linlen)
-      body += line
-      line = "+{}  {}x".format(vid[1], vid[2])
-      line = line.replace(" ", rt) + sp*(len(line) - linlen)
-      body += line
-      body += sp*linlen + " "
-
-    msg = header + " " + body
-    print(msg)
+    msg = "Rank,+{}+Videos,+Votes,+Multiplier+".format(t).ljust(48).replace(" ", "_").replace("+", " ")
+    for i, row in enumerate(dat):
+      video_id, votes, multiplier = row
+      msg+="{},+{},+{},+{}+".format(i, video_id, votes, multiplier).ljust(48).replace(" ", "_").replace("+", " ")
     self.response_queue.put(msg)
 
   def process_message(self, m):
