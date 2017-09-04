@@ -112,7 +112,7 @@ class TwitchReader(threading.Thread):
         username = "".join(str(username).split())
         message = "".join(str(message).split())
         self.message_queue.put((username, message))
-        print "{} put to queue by {}".format((username, message), self.name)
+        # print "{} put to queue by {}".format((username, message), self.name)
         time.sleep(1 / TWITCH_RATE)
 
 class MessageProcessor(threading.Thread):
@@ -193,14 +193,23 @@ class MessageProcessor(threading.Thread):
     #Bot Commands
     if(m[0] == "!"):
       message = m[1:]
-      if(message.lower() == "top"): self.top_command()
-      elif(message.lower() == "random"): self.random_command()
-      elif(message.lower() == "hot"): self.hot_command()
+      if(message.lower() == "top"):
+        self.top_command()
+        print "The top command was run"
+      elif(message.lower() == "random"): 
+        self.random_command()
+        print "The run command was run"
+      elif(message.lower() == "hot"): 
+        self.hot_command()
+        print "The hot command was run"
       else: return None
 
-    if len(m) != 11: return None
-    else: return self.verify_video(m)
- 
+    id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
+    id_search = id_regex.search(m)
+
+    if id_search.group(7): return self.verify_video(m)
+    else: return None
+
   def verify_video(self, video_id):
     # 1. Check if video in db
     # 2. If not, check existance
@@ -246,8 +255,9 @@ class MessageProcessor(threading.Thread):
       if video_id != None:
         self.add_ledger(username, video_id)
         self.add_vote(video_id)
-        print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
-      else: print "{} popped from queue by {}".format((username, message), self.name)
+        print "{} added a vote for {}".format(username, video_id)
+        # print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
+      # else: print "{} popped from queue by {}".format((username, message), self.name)
       self.message_queue.task_done()
 
 def main():
