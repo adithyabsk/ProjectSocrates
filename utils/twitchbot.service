@@ -1,0 +1,10 @@
+[Unit]
+Description=Twitch Chatbot
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/home/ec2-user/ProjectSocrates/bin/python /home/ec2-user/ProjectSocrates/scripts/bot_server.py --serve-in-foreground
+
+[Install]
+WantedBy=multi-user.target
