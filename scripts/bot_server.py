@@ -127,13 +127,9 @@ class MessageProcessor(threading.Thread):
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
 
-  def top_command(self, com, num=5):
-    try: num = int(num)
-    except ValueError: pass
-    if num <=0 or num > 10: num = 5
-   
+  def top_command(self):
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, (votes * multiplier) AS score FROM Votes WHERE play_date = '0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes * multiplier) AS score FROM Votes WHERE play_date = '0000-00-00' ORDER BY score DESC LIMIT 10"
     
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
@@ -142,13 +138,9 @@ class MessageProcessor(threading.Thread):
 
     self.printvideos(dat, "Top")
 
-  def random_command(self, com, num):
-    try: num = int(num)
-    except ValueError: pass
-    if num <=0 or num > 10: num = 5
-    
+  def random_command(self):
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT {}".format(str(num))
+    sql = "SELECT video_id, votes, multiplier, play_date, (votes*multiplier) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY RAND() LIMIT 10"
     
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
@@ -158,13 +150,9 @@ class MessageProcessor(threading.Thread):
     self.printvideos(dat, "Random")
 
 
-  def hot_command(self, com, num):
-    try: num = int(num)
-    except ValueError: pass
-    if num <=0 or num > 10: num = 5
-    
+  def hot_command(self):
     dat = []
-    sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY score DESC LIMIT {}".format(str(num))
+    sql = "SELECT video_id, votes, multiplier, play_date, create_date, (LOG(votes) + (TO_SECONDS(NOW()) - TO_SECONDS(create_date))/45000) AS score FROM Votes WHERE play_date='0000-00-00' ORDER BY score DESC LIMIT 10"
     
     with self.votes_conn.cursor() as cursor:
       cursor.execute(sql)
@@ -203,28 +191,16 @@ class MessageProcessor(threading.Thread):
     #Bot Commands
     if(m[0] == "!"):
       message = m[1:]
-      if(message.lower() == "top"):
-        self.top_command(*self.parse_bot(message))
-      if(message.lower() == "random"):
-        self.random_command(*self.parse_bot(message))
-      if(message.lower() == "hot"):
-        self.hot_command(*self.parse_bot(message))
-      return None
+      if(message.lower() == "top"): self.top_command()
+      elif(message.lower() == "random"): self.random_command()
+      elif(message.lower() == "hot"): self.hot_command()
+      else: return None
 
     if len(m) != 11: return None
-    else: return self.verify_video(m)
-
-  def parse_bot(self, msg):
-    parts = msg.split(' ')
-    com = parts[0]
-    num = 5
-
-    if(len(parts) == 2):
-      try:
-        num = max(int(parts[1]), 20)
-      except:
-        pass
-    return com, num
+    else: 
+      # Check if video in DB
+      # If not then verify video existance, then verify length
+      return self.verify_video(m)
  
   def verify_video(self, video_id):
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
