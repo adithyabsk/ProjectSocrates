@@ -3,12 +3,14 @@ certifi==2017.7.27.1
 cffi==1.10.0
 chardet==3.0.4
 circuits==3.2
+crontab==0.21.3
 cryptography==2.0.3
 enum34==1.1.6
 google-api-python-client==1.6.2
 httplib2==0.10.3
 idna==2.6
 ipaddress==1.0.18
+isodate==0.5.4
 oauth2client==4.1.2
 paypalrestsdk==1.13.1
 praw==5.0.1

@@ -10,8 +10,10 @@ import os.path
 import socket
 import re
 import time
+import isodate
 import threading
 from Queue import Queue
+
 # MariaDB API
 import pymysql.cursors
 
@@ -197,21 +199,27 @@ class MessageProcessor(threading.Thread):
       else: return None
 
     if len(m) != 11: return None
-    else: 
-      # Check if video in DB
-      # If not then verify video existance, then verify length
-      return self.verify_video(m)
+    else: return self.verify_video(m)
  
   def verify_video(self, video_id):
+    # 1. Check if video in db
+    # 2. If not, check existance
+    # 3. If so, check video length
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
       developerKey=YOUTUBE_DEVELOPER_KEY)
 
     results = youtube.videos().list(
-      part="id",
+      part="id,contentDetails",
       id=video_id
     ).execute()
 
-    return results["items"][0]["id"] if results["items"] else None
+    if results["items"]:
+      durationString = results["items"][0]["contentDetails"]["duration"]
+      duration = isodate.parse_duration(durationString)
+      if dur.total_seconds() <= 600: return video_id
+      else: return None
+    else: return None
+
   def add_ledger(self, username, video_id):
     try:
       with self.votes_conn.cursor() as cursor:
