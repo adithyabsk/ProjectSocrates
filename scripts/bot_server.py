@@ -206,8 +206,7 @@ class MessageProcessor(threading.Thread):
 
     id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
     id_search = id_regex.search(m)
-
-    if id_search.group(7): return self.verify_video(m)
+    if id_search and id_search.group(7): return self.verify_video(id_search.group(7))
     else: return None
 
   def verify_video(self, video_id):
@@ -221,11 +220,12 @@ class MessageProcessor(threading.Thread):
       part="id,contentDetails",
       id=video_id
     ).execute()
-
+    
     if results["items"]:
       durationString = results["items"][0]["contentDetails"]["duration"]
       duration = isodate.parse_duration(durationString)
-      if dur.total_seconds() <= 600: return video_id
+      if duration.total_seconds() <= 600: 
+        return video_id
       else: return None
     else: return None
 
@@ -239,7 +239,7 @@ class MessageProcessor(threading.Thread):
     except Exception as e:
       print "There was an error 2 {}".format(e) 
     
-  def put_vote(self, video_id):
+  def add_vote(self, video_id):
     try:
       with self.votes_conn.cursor() as cursor:
         sql = "INSERT INTO `Votes` (`video_id`, `votes`, `multiplier`, `play_date`, `create_date`) VALUES (%s, 1, 1.0, '0000-00-00', %s) ON DUPLICATE KEY UPDATE `votes` = `votes` + 1"
@@ -257,7 +257,7 @@ class MessageProcessor(threading.Thread):
         self.add_vote(video_id)
         print "{} added a vote for {}".format(username, video_id)
         # print "{} popped from queue and added to ledger by {}".format((username, message), self.name)
-      # else: print "{} popped from queue by {}".format((username, message), self.name)
+      else: print "Processed {} from {}".format(message, username, self.name)
       self.message_queue.task_done()
 
 def main():
