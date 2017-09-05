@@ -198,7 +198,7 @@ class MessageProcessor(threading.Thread):
 
     id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
     id_search = id_regex.search(m)
-    if id_search and id_search.group(7): return self.verify_video(id_search.group(7))
+    if id_search and id_search.group(7): return self.verify_video(id_search.group(7)[:11])
     else: return None
 
   def verify_video(self, video_id):
