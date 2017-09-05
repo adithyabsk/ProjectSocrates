@@ -10,6 +10,7 @@ import os.path
 import socket
 import re
 import time
+import datetime
 import isodate
 import threading
 from Queue import Queue
@@ -83,7 +84,7 @@ class TwitchWriter(threading.Thread):
     self.response_queue = response_queue
   
   def chat(self, msg):
-    self.socket.send("PRIVMSG {} :{}\r\n".format(TWITCH_CHAN, msg).encode("utf-8"))
+    self.socket.send("PRIVMSG {} :{}\r\n".format(TWITCH_CHAN, msg[:500]).encode("utf-8"))
 
   def run(self):
     while True:
@@ -118,7 +119,7 @@ class TwitchReader(threading.Thread):
 class MessageProcessor(threading.Thread):
   def __init__(self, message_queue, response_queue, socket):
     threading.Thread.__init__(self)
-
+    
     self.socket = socket
     self.message_queue = message_queue
     self.response_queue = response_queue
@@ -128,6 +129,10 @@ class MessageProcessor(threading.Thread):
                                       db=DB_ID,
                                       charset='utf8mb4',
                                       cursorclass=pymysql.cursors.DictCursor)
+    
+    self.last_top = datetime.datetime.min
+    self.last_random = datetime.datetime.min
+    self.last_hot = datetime.datetime.min
 
   def top_command(self):
     dat = []
@@ -164,10 +169,10 @@ class MessageProcessor(threading.Thread):
     self.printvideos(dat, "Hot")
 
   def printvideos(self, dat, t):
-    msg = "Rank,+{}+Videos,+Votes,+Multiplier+".format(t).ljust(48).replace(" ", "_").replace("+", " ")
+    msg = u"Rank_Votes__Mult_{}_Videos".format(t).ljust(40).replace(" ", "_")+u" "
     for i, row in enumerate(dat):
       video_id, votes, multiplier = row
-      msg+="{},+{},+{},+{}+".format(i, video_id, votes, multiplier).ljust(48).replace(" ", "_").replace("+", " ")
+      msg+=u"{: <2}____{: <5}_{:.1f}___{}".format(i+1, votes, multiplier, video_id).ljust(40).replace(" ", "_")+u" "
     self.response_queue.put(msg)
 
   def process_message(self, m):
@@ -176,13 +181,17 @@ class MessageProcessor(threading.Thread):
     #Bot Commands
     if(m[0] == "!"):
       message = m[1:]
-      if(message.lower() == "top"):
+      now = datetime.datetime.now()
+      if(message.lower() == "top" and (now - self.last_top).total_seconds() > 30):
+        self.last_top = now
         self.top_command()
         print "The top command was run"
-      elif(message.lower() == "random"): 
+      elif(message.lower() == "random" and (now - self.last_random).total_seconds() > 30): 
+        self.last_random = now
         self.random_command()
         print "The run command was run"
-      elif(message.lower() == "hot"): 
+      elif(message.lower() == "hot" and (now - self.last_hot).total_seconds() > 30): 
+        self.last_hot = now
         self.hot_command()
         print "The hot command was run"
       else: return None

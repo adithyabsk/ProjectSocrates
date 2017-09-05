@@ -30,7 +30,7 @@ votes_conn = pymysql.connect(host=DB_HOST,
 
 try:
   with votes_conn.cursor() as cursor:
-    sql = "DELETE FROM `Votes` WHERE DATEDIFF(CURDATE(), `create_date`) >= 3 AND `play_date` != '0000-00-00'"
+    sql = "DELETE FROM `Votes` WHERE DATEDIFF(CURDATE(), `create_date`) >= 3 AND `play_date` = '0000-00-00'"
     cursor.execute(sql)
   votes_conn.commit()
 except Exception as e:
