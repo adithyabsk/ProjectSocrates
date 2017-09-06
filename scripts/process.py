@@ -77,6 +77,7 @@ def write_db(f):
         else: return
     
     if not vidid: return
+    
 
     done = 0
 
