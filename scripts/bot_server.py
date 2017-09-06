@@ -168,18 +168,26 @@ class MessageProcessor(threading.Thread):
 
     self.printvideos(dat, "Hot")
 
+  def status_command(self, video_id):
+    dat = []
+    sql = "SELECT * FROM Votes WHERE video_id = %s"
+    
+    with self.votes_conn.cursor() as cursor:
+      cursor.execute(sql, (video_id,))
+      row = cursor[0]
+      dat += [(row["video_id"],row["votes"],row["multiplier"])]
+
+    self.printvideos(dat, "Status")
+
   def printvideos(self, dat, t):
     msg = u"Rank_Votes__Mult_{}_Videos".format(t).ljust(40).replace(" ", "_")+u" "
     for i, row in enumerate(dat):
       video_id, votes, multiplier = row
-      msg+=u"{: <2}____{: <5}_{:.1f}___{}".format(i+1, votes, multiplier, video_id).ljust(40).replace(" ", "_")+u" "
+      msg += u"{: <2}____{: <5}_{:.1f}___{}".format(i+1, votes, multiplier, video_id).ljust(40).replace(" ", "_")+u" "
     self.response_queue.put(msg)
 
   def process_message(self, m):
-    # Processing to prevent uncessary calling of YT API
-
-    #Bot Commands
-    if(m[0] == "!"):
+    if(m[0] == "!"): # Bot Commands
       message = m[1:]
       now = datetime.datetime.now()
       if(message.lower() == "top" and (now - self.last_top).total_seconds() > 30):
@@ -195,11 +203,25 @@ class MessageProcessor(threading.Thread):
         self.hot_command()
         print "The hot command was run"
       else: return None
-
-    id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-    id_search = id_regex.search(m)
-    if id_search and id_search.group(7): return self.verify_video(id_search.group(7)[:11])
-    else: return None
+      elif(message.lower()[:6] == "status"):
+        status_mesg = m.split()
+        video_id = None
+        if len(status_mesg) != 2: return None
+        if len(status_mesg[1]) == 11: video_id = status_mesg[1]
+        else:
+          id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
+          id_search = id_regex.search(status_mesg[1])
+          if id_search and id_search.group(7): video_id = id_search.group(7)
+          else: return None
+        self.status_command(video_id) # Video id should be of id style
+        print "The status command was run for: {}".format(video_id)
+      else: return None
+    elif len(m) == 11: return self.verify_video(m) # video_id only
+    else: # youtube url only
+      id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
+      id_search = id_regex.search(m)
+      if id_search and id_search.group(7): return self.verify_video(id_search.group(7)[:11])
+      else: return None
 
   def verify_video(self, video_id):
     # 1. Check if video in db
