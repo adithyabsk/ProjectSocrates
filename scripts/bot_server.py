@@ -169,12 +169,11 @@ class MessageProcessor(threading.Thread):
     self.printvideos(dat, "Hot")
 
   def status_command(self, video_id):
-    print "entered"
     dat = []
     sql = "SELECT * FROM Votes WHERE video_id = %s"
     print video_id
     with self.votes_conn.cursor() as cursor:
-      cursor.execute(sql, video_id)
+      cursor.execute(sql, (video_id,))
       for row in cursor:
         dat += [(row["video_id"],row["votes"],row["multiplier"])]
 
