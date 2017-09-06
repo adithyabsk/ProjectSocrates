@@ -7,6 +7,9 @@ import os
 import json
 import pymysql.cursors
 
+import sys
+import select
+
 # Reddit API
 import praw
 
@@ -37,18 +40,36 @@ votes_conn = pymysql.connect(host=DB_HOST,
                              cursorclass=pymysql.cursors.DictCursor)
 
 def create_browser():
-    return webdriver.Firefox() # Change browser here
+    return webdriver.Chrome() # Change browser here
 
 def play_new_video(browser, link):
     browser.get("{}".format(link))
     player_status = browser.execute_script("return document.getElementById('movie_player').getPlayerState()")
     # driver.find_element_by_xpath('/html/body').send_keys(Keys.F11)
-    browser.maximize_window()
     time.sleep(5)
     actions = webdriver.ActionChains(browser)
     actions.send_keys('f')
     actions.perform()
     while player_status:
+        try:
+            browser.find_element_by_class_name('videoAdUiSkipButton').click()
+        except:
+            pass
+        try:
+            browser.find_element_bt_class_name('close-button').click()
+        except:
+            pass
+
+        skip = False
+        while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+            line = sys.stdin.readline()
+            if line:
+                print("Line " + str(line))
+                if("skip" in line):
+                    print("Skipping")
+                    skip = True
+        if skip: break
+
         time.sleep(1)
         player_status = browser.execute_script("return document.getElementById('movie_player').getPlayerState()")
     actions.send_keys(u'\ue00c')
@@ -74,6 +95,7 @@ def set_video_as_played(video_id):
 
 def run():
     browser = create_browser()
+    browser.maximize_window()
     while True:
         video_id = None
         try:
