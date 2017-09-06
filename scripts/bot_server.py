@@ -169,13 +169,14 @@ class MessageProcessor(threading.Thread):
     self.printvideos(dat, "Hot")
 
   def status_command(self, video_id):
+    print "entered"
     dat = []
     sql = "SELECT * FROM Votes WHERE video_id = %s"
-    
+    print video_id
     with self.votes_conn.cursor() as cursor:
-      cursor.execute(sql, (video_id,))
-      row = cursor[0]
-      dat += [(row["video_id"],row["votes"],row["multiplier"])]
+      cursor.execute(sql, video_id)
+      for row in cursor:
+        dat += [(row["video_id"],row["votes"],row["multiplier"])]
 
     self.printvideos(dat, "Status")
 
@@ -183,7 +184,8 @@ class MessageProcessor(threading.Thread):
     msg = u"Rank_Votes__Mult_{}_Videos".format(t).ljust(40).replace(" ", "_")+u" "
     for i, row in enumerate(dat):
       video_id, votes, multiplier = row
-      msg += u"{: <2}____{: <5}_{:.1f}___{}".format(i+1, votes, multiplier, video_id).ljust(40).replace(" ", "_")+u" "
+      rank = i+1 if t != "Status" else "NA"
+      msg += u"{: <2}____{: <5}_{:.1f}___{}".format(rank, votes, multiplier, video_id).ljust(40).replace(" ", "_")+u" "
     self.response_queue.put(msg)
 
   def process_message(self, m):
@@ -202,16 +204,14 @@ class MessageProcessor(threading.Thread):
         self.last_hot = now
         self.hot_command()
         print "The hot command was run"
-      else: return None
       elif(message.lower()[:6] == "status"):
-        status_mesg = m.split()
+        status_msg = message[6:]
         video_id = None
-        if len(status_mesg) != 2: return None
-        if len(status_mesg[1]) == 11: video_id = status_mesg[1]
+        if len(status_msg) == 11: video_id = status_msg
         else:
           id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-          id_search = id_regex.search(status_mesg[1])
-          if id_search and id_search.group(7): video_id = id_search.group(7)
+          id_search = id_regex.search(status_msg)
+          if id_search and id_search.group(7): video_id = id_search.group(7)[:11]
           else: return None
         self.status_command(video_id) # Video id should be of id style
         print "The status command was run for: {}".format(video_id)
