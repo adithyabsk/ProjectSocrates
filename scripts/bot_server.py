@@ -235,7 +235,9 @@ class MessageProcessor(threading.Thread):
     ).execute()
     
     if results["items"]:
-      durationString = results["items"][0]["contentDetails"]["duration"]
+      contentDetails = results["items"][0]["contentDetails"]
+      durationString = contentDetails["duration"]
+      if "contentRating" in contentDetails: return None
       duration = isodate.parse_duration(durationString)
       if duration.total_seconds() <= 600: 
         return video_id
