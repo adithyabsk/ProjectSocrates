@@ -95,6 +95,7 @@ reddit = praw.Reddit(client_id=REDDIT_CLIENT_ID,
 count = 0
 
 def load_subreddit(subreddit):
+	count = 0
 	for submission in reddit.subreddit(subreddit).top('day'):
 		print count
 		if(submission.ups < 30): continue
@@ -113,10 +114,15 @@ def load_subreddit(subreddit):
 
 
 def main():
-	subreddits = json.load("load_videos.config")["subreddits"]
+	subreddits = None
+	with open("load_videos.config") as videos_file:
+		subreddits = json.load(videos_file)["subreddits"]
+	if not subreddits:
+		print("Failed to load config file load_videos.config")
+		quit()
 	for sub in subreddits:
 		load_subreddit(sub)
 
 
-if __namespace__ == "__main__":
+if __name__ == "__main__":
 	main()
