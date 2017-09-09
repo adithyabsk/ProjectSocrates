@@ -18,6 +18,11 @@
         "REDDIT_CLIENT_ID": "UPDATE_ME",
         "REDDIT_CLIENT_SECRET": "UPDATE_ME",
         "REDDIT_PASSWORD": "UPDATE_ME",
-        "REDDIT_USER_AGENT": "Top Video grabber",
-        "REDDIT_USERNAME": "videovote"
+        "REDDIT_USER_AGENT": "Top video grabber",
+        "REDDIT_USERNAME": "videovote",
+	"DB_HOST_ADDRESS": "UPDATE_ME",
+	"DB_USER": "videovote",
+	"DB_PASS": "UPDATE_ME",
+	"DB_PROD_ID": "UPDATE_ME",
+	"DB_TEST_ID": "UPDATE_ME"
 }
