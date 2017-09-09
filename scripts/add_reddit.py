@@ -93,36 +93,20 @@ reddit = praw.Reddit(client_id=REDDIT_CLIENT_ID,
 					 username=REDDIT_USERNAME)
 
 count = 0
+for submission in reddit.subreddit(subreddit).top('all'):
+	if count > 500: break
+	url = submission.url
 
-def load_subreddit(subreddit):
-	count = 0
-	for submission in reddit.subreddit(subreddit).top('day'):
-		print count
-		if(submission.ups < 30): continue
-		url = submission.url
+	video_id = None
+	id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
+	id_search = id_regex.search(url)
+	if id_search and id_search.group(7): video_id = verify_video(id_search.group(7)[:11])
+	else: video_id = None
 
-		video_id = None
-		id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-		id_search = id_regex.search(url)
-		if id_search and id_search.group(7): video_id = verify_video(id_search.group(7)[:11])
-		else: video_id = None
+	if video_id:
+		print video_id
+		add_video(video_id)
+		count += 1
 
-		if video_id:
-			print video_id
-			add_video(video_id)
-			count += 1
+	print count
 
-
-def main():
-	subreddits = None
-	with open("load_videos.config") as videos_file:
-		subreddits = json.load(videos_file)["subreddits"]
-	if not subreddits:
-		print("Failed to load config file load_videos.config")
-		quit()
-	for sub in subreddits:
-		load_subreddit(sub)
-
-
-if __name__ == "__main__":
-	main()

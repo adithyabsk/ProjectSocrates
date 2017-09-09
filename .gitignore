@@ -101,5 +101,5 @@ ENV/
 # Project Specific Git Ignore components
 ProjectSocrates/*
 geckodriver
-keys/*.config
+*.config
 .DS_Store
