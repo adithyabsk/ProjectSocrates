@@ -39,6 +39,13 @@ REDDIT_PASSWORD = keys["REDDIT_PASSWORD"]
 REDDIT_USER_AGENT = keys["REDDIT_USER_AGENT"]
 REDDIT_USERNAME= keys["REDDIT_USERNAME"]
 
+# DB
+DB_HOST = keys["DB_HOST"]
+DB_USER = keys["DB_USER"]
+DB_PASS = keys["DB_PASS"]
+DB_PROD_ID = keys["DB_PROD_ID"]
+DB_TEST_ID = keys["DB_TEST_ID"]
+
 if __name__ == '__main__':
 	global_vars = {k: v for k, v in dict(globals()).iteritems() if k.isupper()}
 	print "Keys\n----"
