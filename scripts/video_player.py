@@ -56,7 +56,7 @@ def play_new_video(browser, link):
         except:
             pass
         try:
-            browser.find_element_bt_class_name('close-button').click()
+            browser.find_element_by_class_name('close-button').click()
         except:
             pass
 
@@ -102,9 +102,11 @@ def run():
             video_id = get_top_unplayed_video()
         except:
             pass
-        link = "https://www.youtube.com/watch?v={}".format(video_id)
-        play_new_video(browser,link)
-        set_video_as_played(video_id)
+        print video_id
+        if video_id: 
+            link = "https://www.youtube.com/watch?v={}".format(video_id)
+            play_new_video(browser,link)
+            set_video_as_played(video_id)
 
 
 def main():
