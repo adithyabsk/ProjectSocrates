@@ -1,0 +1,23 @@
+{
+	"YOUTUBE_DEVELOPER_KEY": "UPDATE_ME",
+	"YOUTUBE_API_SERVICE_NAME": "youtube",
+	"YOUTUBE_API_VERSION": "v3",
+	"TWITCH_HOST": "irc.twitch.tv",
+	"TWITCH_PORT": 6667,
+	"TWITCH_NICK": "videovotebot",
+	"TWITCH_OAUTH": "UPDATE_ME",
+	"TWITCH_CHAN": "#videovote",
+	"TWITCH_RATE": 20,
+	"TWITCH_APP": {
+		"CLIENT_ID": "UPDATE_ME",
+		"CLIENT_SECRET": "UPDATE_ME"
+	},
+	"PAYPAL_CLIENT_ID": "UPDATE_ME",
+	"PAYPAL_SECRET": "UPDATE_ME",
+	"PAYPAL_OAUTH": "UPDATE_ME",
+        "REDDIT_CLIENT_ID": "UPDATE_ME",
+        "REDDIT_CLIENT_SECRET": "UPDATE_ME",
+        "REDDIT_PASSWORD": "UPDATE_ME",
+        "REDDIT_USER_AGENT": "Top Video grabber",
+        "REDDIT_USERNAME": "videovote"
+}

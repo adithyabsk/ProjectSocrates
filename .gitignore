@@ -102,4 +102,5 @@ ENV/
 ProjectSocrates/*
 geckodriver
 *.config
-.DS_Storechromedriver
+.DS_Store
+chromedriver
