@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import time
 import json
@@ -44,7 +45,8 @@ def load_subreddit(subreddit):
 		print count
 		if(submission.ups < 30): continue
 		url = submission.url
-		video_id = shared.get_video_id(shared.verify_video(url))
+		if not url: continue
+		video_id = shared.verify_video(shared.get_video_id(url))
 		if video_id:
 			print video_id
 			add_video(video_id)

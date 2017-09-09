@@ -42,6 +42,7 @@ def verify_video(video_id):
 	else: return None
 
 def get_video_id(msg):
+	if not msg: return None
 	if len(msg) == 11: return msg
 	# url or id itself
 	id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
