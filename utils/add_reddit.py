@@ -1,79 +1,27 @@
 #!/usr/bin/env python
 
-import praw
-import re
-import json
 import sys
-import os
 import time
-
-import isodate
+import json
 
 # MariaDB API
 import pymysql.cursors
 
-# Youtube API
-from apiclient.discovery import build
-from apiclient.errors import HttpError
-from oauth2client.tools import argparser
-
-# DB
-db_keys = None
-if os.path.isfile("../keys/db_keys.config"):
-	with open("../keys/db_keys.config", "r") as key_file:
-		db_keys = json.load(key_file)
-else:
-	sys.exit("db_keys.config was not found, please update model config file")
+# Reddit API
+import praw
 
 # Secrets
-secrets = None
-if os.path.isfile("../keys/bot_keys.config"):
-	with open("../keys/bot_keys.config", "r") as keys_file:
-		secrets = json.load(keys_file)
-else:
-	sys.exit("../keys/bot_keys.config was not found, please update sample file with keys")
-
-# DB
-DB_HOST = db_keys["DB_HOST"]
-DB_USER = db_keys["DB_USER"]
-DB_PASS = db_keys["DB_PASS"]
-DB_ID = db_keys["DB_ID"]
-
-# YT
-YOUTUBE_DEVELOPER_KEY = secrets["YOUTUBE_DEVELOPER_KEY"]
-YOUTUBE_API_SERVICE_NAME = secrets["YOUTUBE_API_SERVICE_NAME"]
-YOUTUBE_API_VERSION = secrets["YOUTUBE_API_VERSION"]
-
-# Reddit
-REDDIT_CLIENT_ID = secrets["REDDIT_CLIENT_ID"]
-REDDIT_CLIENT_SECRET = secrets["REDDIT_CLIENT_SECRET"]
-REDDIT_PASSWORD = secrets["REDDIT_PASSWORD"]
-REDDIT_USER_AGENT = secrets["REDDIT_USER_AGENT"]
-REDDIT_USERNAME= secrets["REDDIT_USERNAME"]
-
-
-def verify_video(video_id):
-  youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,
-    developerKey=YOUTUBE_DEVELOPER_KEY)
-
-  results = youtube.videos().list(
-    part="id,contentDetails",
-    id=video_id
-  ).execute()
-  
-  if results["items"]:
-    durationString = results["items"][0]["contentDetails"]["duration"]
-    duration = isodate.parse_duration(durationString)
-    if duration.total_seconds() <= 600:
-      return video_id
-    else: return None
-  else: return None
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1" #OSX hotfix
+sys.dont_write_bytecode = True
+sys.path.insert(0, '../shared')
+import secrets
+import shared
 
 def add_video(video_id):
-	votes_conn = pymysql.connect(host=DB_HOST,
-								 user=DB_USER,
-								 password=DB_PASS,
-								 db=DB_ID,
+	votes_conn = pymysql.connect(host=secrets.DB_HOST,
+								 user=secrets.DB_USER,
+								 password=secrets.DB_PASS,
+								 db=secrets.DB_PROD_ID,
 								 charset='utf8mb4',
 								 cursorclass=pymysql.cursors.DictCursor)
 	try:
@@ -84,42 +32,30 @@ def add_video(video_id):
 	except Exception as e:
 		print "There was an error 1 {}".format(e)
 
-subreddit = 'ContagiousLaughter'
-
-reddit = praw.Reddit(client_id=REDDIT_CLIENT_ID,
-					 client_secret=REDDIT_CLIENT_SECRET,
-					 password=REDDIT_PASSWORD,
-					 user_agent=REDDIT_USER_AGENT,
-					 username=REDDIT_USERNAME)
-
-count = 0
+reddit = praw.Reddit(client_id=secrets.REDDIT_CLIENT_ID,
+					 client_secret=secrets.REDDIT_CLIENT_SECRET,
+					 password=secrets.REDDIT_PASSWORD,
+					 user_agent=secrets.REDDIT_USER_AGENT,
+					 username=secrets.REDDIT_USERNAME)
 
 def load_subreddit(subreddit):
-	count = 0
+	count = 1
 	for submission in reddit.subreddit(subreddit).top('day'):
 		print count
 		if(submission.ups < 30): continue
 		url = submission.url
-
-		video_id = None
-		id_regex = re.compile(r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*')
-		id_search = id_regex.search(url)
-		if id_search and id_search.group(7): video_id = verify_video(id_search.group(7)[:11])
-		else: video_id = None
-
+		video_id = shared.get_video_id(shared.verify_video(url))
 		if video_id:
 			print video_id
 			add_video(video_id)
 			count += 1
-
 
 def main():
 	subreddits = None
 	with open("load_videos.config") as videos_file:
 		subreddits = json.load(videos_file)["subreddits"]
 	if not subreddits:
-		print("Failed to load config file load_videos.config")
-		quit()
+		sys.exit("Failed to load config file load_videos.config")
 	for sub in subreddits:
 		load_subreddit(sub)
 

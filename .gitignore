@@ -104,3 +104,5 @@ geckodriver
 *.config
 .DS_Store
 chromedriver
+*.pub
+*.pyc
