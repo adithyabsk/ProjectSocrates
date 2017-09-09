@@ -12,7 +12,7 @@ from urllib import urlencode
 # Secrets and Shared
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1" #OSX hotfix
 sys.dont_write_bytecode = True
-sys.path.insert(0, '../shared')
+sys.path.insert(0, '../../shared')
 import secrets
 import shared
 

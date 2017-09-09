@@ -101,6 +101,7 @@ ENV/
 # Project Specific Git Ignore components
 ProjectSocrates/*
 geckodriver
+authorized_keys
 *.config
 .DS_Store
 chromedriver
