@@ -1,0 +1,75 @@
+body {
+	background-color: #000000
+}
+
+.set {
+	width: 92%;
+	height: 25%;
+	background-color: #505050;
+	margin: 5%;
+}
+
+.num {
+	float: left;
+	width: 20%;
+	padding 2%;
+	background-color: darkgreen;
+	color:white;
+	font-family: Arial;
+	font-weight: bold;
+	height: 3em;
+	text-align: center;
+	vertical-align: middle;
+	line-height: 3em; 
+	font-size: 14pt;
+}
+
+.title {
+
+	vertical-align: middle:
+	height: 3em;	
+	float:right;
+	overflow:hidden;
+	padding: 2%;
+	width: 74%;
+	color: white;
+	font-weight: bold;
+	white-space: pre-line;
+	word-wrap: break-word;
+	font-size: 9.5pt;
+	font-family: Arial;
+}
+
+.vid {
+	width:100%;
+}
+
+.info {
+
+	margin: 0%;
+	padding: 0%
+	color:white;
+	width: 100%
+	height: 10%
+
+}
+
+.votes {
+	padding: 2%;
+	width: 46%;
+	background-color: red;
+	float: left;
+	color:#000000;
+	font-weight: bold;
+	font-family: Arial;
+}
+
+.powers {
+	padding: 2%;
+	width: 46%;
+	background-color: gold;
+	color:#000000;
+	float:right;
+	font-weight: bold;
+	font-family: Arial;
+}
