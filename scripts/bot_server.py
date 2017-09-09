@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Set Default encoding
-import sys
-reload(sys)
-sys.setdefaultencoding("utf-8")
-
 # Python imports
-import json
-import os.path
+import os
 import socket
 import re
 import time
 import datetime
 import threading
 from Queue import Queue
+
+# Set Default encoding
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 # MariaDB API
 import pymysql.cursors

@@ -3,7 +3,6 @@
 # Python imports
 import os
 import time
-import json
 import select
 
 # Reddit API
